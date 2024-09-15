@@ -3,6 +3,7 @@ const app = express();
 const axios = require("axios");
 const cors = require("cors");
 const sequelize = require("./database");
+const path = require("path");
 
 const { ComicsViews } = require("./models/ComicsViews");
 const { LatestComic } = require("./models/LatestComic");
@@ -29,13 +30,14 @@ const test = async () => {
 test();
 
 app.use(cors());
+app.use(express.static(path.join(__dirname, "../client/build")));
 
 app.get("/api/comic/:id?", async (req, res) => {
   const comicId = req.params.id || LATEST_STR;
   console.log("🚀TCL ~ app.get ~ comicId:", comicId);
   try {
     const response = await getComic(comicId);
-    // const latestComicNum = await getLatestComicNum();
+    const latestComicNum = await getLatestComicNum();
     const viewCount = getComicViewCount(response.data.num);
     res.json({
       ...response.data,
