@@ -18,13 +18,13 @@ type comic = {
   img: string;
   title: string;
   day: string;
+  view_count: number;
 } | null;
 
 function ComicPage() {
   const [comic, setComic] = useState<comic>(null);
   const [hasError, setHasError] = useState(false);
-  console.log("🚀TCL ~ App ~ comic:", comic);
-  const [maxComicNum, setComicMaxNum] = useState(0);
+  const [maxComicNum, setComicMaxNum] = useState(500);
   const { id: pathId } = useParams();
   const navigate = useNavigate();
 
@@ -114,7 +114,7 @@ function ComicPage() {
               <h3 className="heading">Transcript:</h3>
               <p dangerouslySetInnerHTML={{ __html: comicTranscript }} />
             </div>
-            {/* <p>Views: {views}</p> */}
+            <p>Views: {comic.view_count}</p>
           </div>
         )
       )}

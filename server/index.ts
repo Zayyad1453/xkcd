@@ -1,111 +1,117 @@
 const express = require("express");
-const app = express();
 const axios = require("axios");
 const cors = require("cors");
-const sequelize = require("./database");
 const path = require("path");
-
-const { ComicsViews } = require("./models/ComicsViews");
-const { LatestComic } = require("./models/LatestComic");
+const sequelize = require("./database");
+const ComicViewCount = require("./models/ComicViewCount");
+const LatestComic = require("./models/LatestComic");
 
 const LATEST_STR = "latest";
 const port = process.env.PORT || 5000;
 
-(async () => {
-  await sequelize.authenticate();
-})();
-sequelize.sync({ force: true }).then(async () => {
-  console.log("Database synced");
-});
-
-const test = async () => {
-  try {
-    const entry = await LatestComic.create({ num: 100 });
-    console.log("🚀TCL ~ test ~ entry:", entry);
-  } catch (e) {
-    console.log("error", e);
-  }
-};
-
-test();
-
+const app = express();
 app.use(cors());
 app.use(express.static(path.join(__dirname, "../client/build")));
 
-app.get("/api/comic/:id?", async (req, res) => {
-  const comicId = req.params.id || LATEST_STR;
-  console.log("🚀TCL ~ app.get ~ comicId:", comicId);
+// Database initialization
+async function initializeDatabase() {
   try {
-    const response = await getComic(comicId);
-    const latestComicNum = await getLatestComicNum();
-    const viewCount = getComicViewCount(response.data.num);
-    res.json({
-      ...response.data,
-      max_num: 2000,
-      //   view_count: viewCount,
-    });
-    // await incrementViewCount(response.data.num);
+    await sequelize.authenticate();
+    console.log(
+      "Connection to the database has been established successfully."
+    );
+    await sequelize.sync({ force: true });
+    console.log("Database synchronized successfully.");
   } catch (error) {
-    res.status(500).json({ error: "Unable to fetch comic" });
+    console.error("Unable to connect to or synchronize the database:", error);
   }
-});
+}
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
-
+// Helper functions
 const getComic = async (comicId) => {
   const url =
     comicId === LATEST_STR
       ? "https://xkcd.com/info.0.json"
-      : `https://xkcd.com/${comicId}/info.0.json`;
-
+      : "https://xkcd.com/${comicId}/info.0.json";
   return await axios.get(url);
 };
 
-// const updateLatestComicNum = async (latestNum) => {
-//   const latestComicRepo = getRepository(LatestComicModel);
-//   const [latestComic, created] = await latestComicRepo.update({
-//     num: latestNum,
-//   });
-//   return latestComic.num;
-// };
+const isToday = (date) => {
+  const today = new Date();
+  return (
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear()
+  );
+};
 
+// Comic-related functions
 const getLatestComicNum = async () => {
   let latestComic = await LatestComic.findOne();
-  console.log("🚀TCL GETTING LATEST:");
-  //   console.log("🚀TCL ~ getLatestComicNum ~ latestComic:", latestComic);
-  if (!latestComic) {
+
+  if (!latestComic || !isToday(latestComic.last_updated)) {
     try {
       const response = await getComic(LATEST_STR);
       const latestComicNum = response.data.num;
 
-      await LatestComic.upsert({ num: latestComicNum });
+      await LatestComic.upsert({
+        num: latestComicNum,
+        last_updated: new Date(),
+      });
+
       return latestComicNum;
     } catch (error) {
-      console.log("🚀TCL ~ getLatestComicNum ~ error:", error);
+      console.error(
+        "Unable to fetch the latest comic number from XKCD:",
+        error
+      );
       throw new Error("Unable to fetch the latest comic number from XKCD");
     }
   }
 
   return latestComic.num;
 };
+
 const incrementViewCount = async (num) => {
-  const comic = await ComicsViews.findOne({
-    where: { num },
-  }).then((resp) => {
-    if (resp) {
-      resp.update({ view_count: resp.view_count + 1 });
-    }
-  });
+  try {
+    const [comic] = await ComicViewCount.findOrCreate({
+      where: { num },
+      defaults: { view_count: 0 },
+    });
+    await comic.increment("view_count");
+  } catch (error) {
+    console.error("Error incrementing view count:", error);
+  }
 };
 
 const getComicViewCount = async (num) => {
-  const comic = await ComicsViews.findOne({
-    where: { num },
-  });
-  if (comic) {
-    return comic.view_count;
-  }
-  return 0;
+  const comic = await ComicViewCount.findOne({ where: { num } });
+  return comic ? comic.view_count : 0;
 };
+
+// Routes
+app.get("/api/comic/:id?", async (req, res) => {
+  const comicId = req.params.id || LATEST_STR;
+  try {
+    const response = await getComic(comicId);
+    const latestComicNum = await getLatestComicNum();
+    await incrementViewCount(response.data.num);
+    const viewCount = await getComicViewCount(response.data.num);
+
+    res.json({
+      ...response.data,
+      max_num: latestComicNum,
+      view_count: viewCount,
+    });
+  } catch (error) {
+    console.error("Error fetching comic:", error);
+    res.status(500).json({ error: "Unable to fetch comic" });
+  }
+});
+
+// Start server
+initializeDatabase().then(() => {
+  app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+  });
+});
