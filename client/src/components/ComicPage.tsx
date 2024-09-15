@@ -39,9 +39,7 @@ function ComicPage() {
   const fetchComic = async (id: comicIdType) => {
     try {
       setHasError(false);
-      const response = await axios.get(
-        `http://localhost:5000/api/comic/${id || "latest"}`
-      );
+      const response = await axios.get(`/api/comic/${id || "latest"}`);
       setComic(response.data);
       setComicMaxNum(response.data.max_num);
     } catch (error) {
