@@ -51,7 +51,6 @@ function ComicPage() {
   };
 
   useEffect(() => {
-    console.log("In here");
     fetchComic(parsePathId());
   }, [pathId, parsePathId]);
 
@@ -64,7 +63,6 @@ function ComicPage() {
   };
 
   const handleRandom = async () => {
-    console.log("🚀TCL ~ handleRandom ~ maxComicNum:", maxComicNum);
     navigate(`/comic/${Math.floor(Math.random() * maxComicNum)}`);
   };
 

@@ -32,7 +32,7 @@ const getComic = async (comicId) => {
   const url =
     comicId === LATEST_STR
       ? "https://xkcd.com/info.0.json"
-      : "https://xkcd.com/${comicId}/info.0.json";
+      : `https://xkcd.com/${comicId}/info.0.json`;
   return await axios.get(url);
 };
 
@@ -45,7 +45,6 @@ const isToday = (date) => {
   );
 };
 
-// Comic-related functions
 const getLatestComicNum = async () => {
   let latestComic = await LatestComic.findOne();
 
