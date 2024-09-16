@@ -108,6 +108,10 @@ app.get("/api/comic/:id?", async (req, res) => {
   }
 });
 
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../client/build", "index.html"));
+});
+
 // Start server
 initializeDatabase().then(() => {
   app.listen(port, () => {
